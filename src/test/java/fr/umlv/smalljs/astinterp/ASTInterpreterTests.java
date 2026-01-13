@@ -20,7 +20,6 @@ public class ASTInterpreterTests {
     return outStream.toString(UTF_8).replace("\r\n", "\n");
   }
 
-  /*
   @Nested
   public class Q2 {
     @Test
@@ -37,7 +36,6 @@ public class ASTInterpreterTests {
               """));
     }
   }
-
   @Nested
   public class Q3 {
     @Test
@@ -219,6 +217,7 @@ public class ASTInterpreterTests {
     }
   }
 
+  /*
   @Nested
   public class Q11 {
     @Test
@@ -543,6 +542,5 @@ public class ASTInterpreterTests {
                   print(fun(object2));
                   """));
     }
-  }
-  */
+  }*/
 }

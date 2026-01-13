@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static fr.umlv.smalljs.rt.JSObject.UNDEFINED;
 import static java.util.stream.Collectors.joining;
@@ -67,41 +68,72 @@ public final class ASTInterpreter {
   static Object visit(Expr expression, JSObject env) {
     return switch (expression) {
       case Block(List<Expr> exprs, int lineNumber) -> {
-        if (true) {
-          throw new UnsupportedOperationException("TODO Block");
-        }
-        // TODO loop over all instructions
+        exprs.forEach(expr -> visit(expr, env));
         yield UNDEFINED;
       }
       case Literal(Object value, int lineNumber) -> {
-        throw new UnsupportedOperationException("TODO Literal");
+        yield value;
       }
       case Call(Expr qualifier, List<Expr> args, int lineNumber) -> {
-        throw new UnsupportedOperationException("TODO Call");
+        var maybeFunction = visit(qualifier, env);
+        if (maybeFunction instanceof JSObject function) {
+          var evaluated = args.stream().map(expr -> visit(expr, env)).toArray();
+          yield function.invoke(UNDEFINED, evaluated);
+        } else {
+          throw new Failure(maybeFunction + " is not a function at line " + lineNumber);
+        }
       }
       case Identifier(String name, int lineNumber) -> {
-        throw new UnsupportedOperationException("TODO Identifier");
+        var value = env.lookupOrDefault(name, null);
+        if (value == null) {
+          throw new Failure("No such variable name for " + value + " at line " + lineNumber);
+        }
+        yield value;
       }
       case VarAssignment(String name, Expr expr, boolean declaration, int lineNumber) -> {
-        throw new UnsupportedOperationException("TODO VarAssignment");
+        var variable = env.lookupOrDefault(name, null);
+        if (!declaration && variable == null) {
+          throw new Failure("not a declaration " + name + "at line" + lineNumber);
+        }
+        var value = visit(expr, env);
+        env.register(name, value);
+        yield value;
       }
       case Fun(String name, List<String> parameters, boolean toplevel, Block body, int lineNumber) -> {
-				throw new UnsupportedOperationException("TODO Fun");
-        //Object.Invoker invoker = new Object.Invoke() {
-        //  @Override
-        //  public Object invoke(Object receiver, Object... args) {
-        //    // check the arguments length
-        //    // create a new environment
-        //    // add this and all the parameters
-        //    // execute the body
-        //  }
-        //};
-        // create the JS function with the invoker
-        // register it into the global env if it's a toplevel
-        // yield the function
+        JSObject.Invoker invoker = new JSObject.Invoker() {
+          @Override
+          public Object invoke(Object receiver, Object... args) {
+            if (parameters.size() != args.length) {
+              throw new Failure("wrong number of arguments for " + name + " at line number " + lineNumber);
+            }
+            var newEnv = JSObject.newEnv(env);
+            newEnv.register("this", receiver);
+
+            for (int i = 0; i < parameters.size(); i++) {
+              newEnv.register(parameters.get(i), args[i]);
+            }
+
+            try {
+              execute(body, newEnv);
+            } catch (ReturnError e) {
+              return e.getValue();
+            }
+
+            return UNDEFINED;
+          }
+        };
+
+        var function = JSObject.newFunction(name, invoker);
+        if (toplevel) {
+          env.register(name, function);
+        }
+         // create the JS function with the invoker
+         // register it into the global env if it's a toplevel
+       yield function;
       }
       case Return(Expr expr, int lineNumber) -> {
-				throw new UnsupportedOperationException("TODO Return");
+        var res = visit(expr, env);
+        throw new ReturnError(res);
       }
       case If(Expr condition, Block trueBlock, Block falseBlock, int lineNumber) -> {
 				throw new UnsupportedOperationException("TODO If");
