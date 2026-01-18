@@ -17,6 +17,7 @@ import fr.umlv.smalljs.ast.Script;
 import fr.umlv.smalljs.rt.Failure;
 import fr.umlv.smalljs.rt.JSObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
@@ -24,7 +25,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static fr.umlv.smalljs.ast.ASTBuilder.createScript;
 import static fr.umlv.smalljs.rt.JSObject.UNDEFINED;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 
 public final class ASTInterpreter {
@@ -123,32 +126,65 @@ public final class ASTInterpreter {
           }
         };
 
+        // create the JS function with the invoker
         var function = JSObject.newFunction(name, invoker);
+        // register it into the global env if it's a toplevel
         if (toplevel) {
           env.register(name, function);
         }
-         // create the JS function with the invoker
-         // register it into the global env if it's a toplevel
-       yield function;
+        yield function;
       }
       case Return(Expr expr, int lineNumber) -> {
         var res = visit(expr, env);
         throw new ReturnError(res);
       }
       case If(Expr condition, Block trueBlock, Block falseBlock, int lineNumber) -> {
-				throw new UnsupportedOperationException("TODO If");
+        final var computed = visit(condition, env);
+        boolean trueValue;
+        if (computed instanceof Integer value) {
+          trueValue = value != 0;
+        }
+        else {
+          trueValue = computed != UNDEFINED;
+        }
+        if (trueValue) {
+          yield visit(trueBlock, env);
+        }
+        else {
+          yield visit(falseBlock, env);
+        }
       }
       case ObjectLiteral(Map<String, Expr> initMap, int lineNumber) -> {
-				throw new UnsupportedOperationException("TODO ObjectLiteral");
+        var object = JSObject.newObject(null);
+        initMap.forEach((s, expr) -> object.register(s, visit(expr, env)));
+        yield object;
       }
       case FieldAccess(Expr receiver, String name, int lineNumber) -> {
-        throw new UnsupportedOperationException("TODO FieldAccess");
+        var object = visit(receiver, env);
+        if (object instanceof JSObject jsObject) {
+          yield jsObject.lookupOrDefault(name, UNDEFINED);
+        }
+        yield UNDEFINED;
       }
       case FieldAssignment(Expr receiver, String name, Expr expr, int lineNumber) -> {
-        throw new UnsupportedOperationException("TODO FieldAssignment");
+        var object = visit(receiver, env);
+        if (object instanceof JSObject jsObject) {
+          jsObject.register(name, visit(expr, env));
+        }
+        yield UNDEFINED;
       }
       case MethodCall(Expr receiver, String name, List<Expr> args, int lineNumber) -> {
-        throw new UnsupportedOperationException("TODO MethodCall");
+        var object = visit(receiver, env);
+        if (object instanceof JSObject jsObject) {
+          var maybeFunction = jsObject.lookupOrDefault(name, UNDEFINED);
+          if (maybeFunction instanceof JSObject function) {
+            var evaluated = args.stream().map(expr -> visit(expr, env)).toArray();
+            yield function.invoke(jsObject, evaluated);
+          } else {
+            throw new Failure(maybeFunction + " is not a function at line " + lineNumber);
+          }
+        }
+        yield null;
       }
     };
   }
@@ -180,6 +216,18 @@ public final class ASTInterpreter {
     var globalEnv = createGlobalEnv(outStream);
     var body = script.body();
     execute(body, globalEnv);
+  }
+
+  static void main() {
+    var script = createScript("""
+      var f = 1
+      f()
+      """
+    );
+    var outStream = new ByteArrayOutputStream(8192);
+    ASTInterpreter.interpret(script, new PrintStream(outStream, false, UTF_8));
+    System.out.println(outStream.toString(UTF_8).replace("\r\n", "\n"));
+
   }
 }
 

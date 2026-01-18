@@ -217,7 +217,6 @@ public class ASTInterpreterTests {
     }
   }
 
-  /*
   @Nested
   public class Q11 {
     @Test
@@ -542,5 +541,5 @@ public class ASTInterpreterTests {
                   print(fun(object2));
                   """));
     }
-  }*/
+  }
 }
