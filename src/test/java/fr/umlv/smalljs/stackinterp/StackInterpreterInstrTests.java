@@ -46,7 +46,6 @@ public class StackInterpreterInstrTests {
 		return outStream.toString(UTF_8).replace("\r\n", "\n");
 	}
 
-	/*
 	@Nested
   public class Q2 {
 		@Test
@@ -212,6 +211,7 @@ public class StackInterpreterInstrTests {
 		}
 	}
 
+	/*
 	@Nested
 	public class Q7 {
 		@Test
